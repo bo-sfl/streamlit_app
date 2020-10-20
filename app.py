@@ -68,11 +68,14 @@ def load_logo():
 
 @st.cache(show_spinner=False)
 def get_data(pid):
+    if pid == "fake_id":
+        return None
     time.sleep(5)
     return [1,2,3,4,5]
 
 
 def main():
+    ##Hacks for App layout and styles
     st.beta_set_page_config(
         page_title="Cool App",
         layout="wide",
@@ -90,34 +93,41 @@ def main():
         <style>.fullScreenFrame {margin: auto;}</style>
         """, unsafe_allow_html=True) 
     st.markdown(
-        """<style>
-            .block-container {padding-top : 1rem;}
+        """<style> .block-container {padding-top: 1rem;}
         </style>
         """, unsafe_allow_html=True) # This doesn't work
+
     ## Main App
     st.sidebar.header('Inputs')
     patient_id = st.sidebar.text_input("Please enter the Patient ID")
+    title_text = st.empty()
+
     if not patient_id:
-        st.header('<-- Enter a Patient ID to start')
+        title_text.header('<-- Enter a Patient ID to start')
         st.stop()
+
     with st.spinner("Fetching data ..."):
         input_data = get_data(patient_id)
+        if input_data:
+            available_pathway = ["Pathway A", "Pathway B", "Pathway C", "Pathway D"]
+            pathways_bool = [st.sidebar.checkbox(_pathway,True,key=str(patient_id)+_pathway) for _pathway in available_pathway]
+            pathways = [_x for _x, _y in zip(available_pathway, pathways_bool) if _y]
+            run_prediction = st.sidebar.button('Run')
+        else:
+            title_text.header('The Patient ID is not valid')
+            st.stop()
 
-    if st.sidebar.checkbox('Select Pathways:'):
-        pathways = st.sidebar.multiselect( 'Select treatment pathways',
-            ["Pathway A", "Pathway B", "Pathway C", "Pathway D"])
-    else:
-        pathways = None
-
-        
-    if st.sidebar.button('Run'):
+    # Run Prediction
+    if run_prediction:
         with st.spinner("Runing predictions ..."):
             predictions = run_inference(input_data, pathways)
     else:
-        st.header('Click on the run button for predictions')
+        title_text.header('Click on the run button for predictions')
         st.stop()
 
-    st.header(f'The Predictions for {patient_id} are')
+    # Render the results 
+    title_text.header(f'The Predictions for {patient_id} are')
+    # with pred_container.beta_container():
     st.plotly_chart(plot_predictions(input_data, predictions),use_container_width=True, config={"displaylogo":False} )
     df = pd.DataFrame.from_dict(predictions, orient='index', columns=['Predictions'])
     st.dataframe(df.style.highlight_max(axis=0),width=900)

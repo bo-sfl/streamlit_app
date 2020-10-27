@@ -6,34 +6,34 @@ import base64
 import pandas as pd
 
 
-def run_inference(input_data, pathways = None):
-    time.sleep(5)
+def run_inference(patient_data):
+    time.sleep(3)
     predictions = {
-        "Pathway A":6,
-        "Pathway B":5.5,
-        "Pathway C":5.1,
-        "Pathway D":7,
+        "Pathway A":60,
+        "Pathway B":55,
+        "Pathway C":51,
+        "Pathway D":70,
     }
-    if pathways:
-        return {k:predictions[k] for k in pathways}
+    if patient_data["pathways"]:
+        return {k:predictions[k] for k in patient_data["pathways"]}
     else:
         return predictions
 
 
-def plot_predictions(input_data, preditions):
-    x_size = len(input_data)
+def plot_predictions(patient_data, preditions):
+    x_size = len(patient_data["meta"])
     fig = go.Figure()
     fig.add_trace(
         go.Scatter(
             x=list(range(x_size)),
-            y = input_data,
+            y = patient_data["meta"],
             mode="lines",
             name="Current"
             ))
     fig.add_traces([
         go.Scatter(
             x=[x_size-1, x_size],
-            y= [input_data[-1], preditions[k]],
+            y= [patient_data["meta"][-1], preditions[k]],
             mode="lines",
             name = k) 
         for k in sorted(preditions.keys())
@@ -67,11 +67,31 @@ def load_logo():
 
 
 @st.cache(show_spinner=False)
-def get_data(pid):
-    if pid == "fake_id":
+def get_data(patient_mrn):
+    if patient_mrn == "fake_id":
         return None
-    time.sleep(5)
-    return [1,2,3,4,5]
+    time.sleep(1)
+    return [10,20,30,40,50]
+
+@st.cache(show_spinner=False)
+def get_facility_list(data):
+    return [
+        "PA-ERMC",
+        "GA-SERMC",
+        "AZ-WRMC",
+        "IL-MRMC",
+        "OK-SRMC",
+            ]
+
+
+@st.cache(show_spinner=False)
+def get_disease_list(data):
+    return ["A", "B", "C"]
+
+
+@st.cache(show_spinner=False)
+def get_pathway_list(data):
+    return ["Pathway A", "Pathway B", "Pathway C", "Pathway D"]
 
 
 def main():
@@ -99,42 +119,54 @@ def main():
 
     ## Main App
     st.sidebar.header('Inputs')
-    patient_id = st.sidebar.text_input("Please enter the Patient ID")
+    patient_mrn = st.sidebar.text_input("Please enter the Patient MRN:")
     title_text = st.empty()
 
-    if not patient_id:
-        title_text.header('<-- Enter a Patient ID to start')
+    if not patient_mrn:
+        title_text.header('<-- Enter a Patient MRN to start')
         st.stop()
 
     with st.spinner("Fetching data ..."):
-        input_data = get_data(patient_id)
-        if input_data:
-            available_pathway = ["Pathway A", "Pathway B", "Pathway C", "Pathway D"]
-            pathways_bool = [st.sidebar.checkbox(_pathway,True,key=str(patient_id)+_pathway) for _pathway in available_pathway]
-            pathways = [_x for _x, _y in zip(available_pathway, pathways_bool) if _y]
-            run_prediction = st.sidebar.button('Run')
-        else:
-            title_text.header('The Patient ID is not valid')
-            st.stop()
+        patient_data = {"patient_mrn":patient_mrn}
+        patient_data["meta"] = get_data(patient_mrn)
+    if patient_data["meta"]:
+        patient_data["facility"] = st.sidebar.selectbox(
+            "Please specific facility:", 
+            get_facility_list(patient_data),
+            key=f"{patient_mrn}_facility",
+            )
+        patient_data["disease"] = st.sidebar.selectbox(
+            "Please specific disease type:",
+            get_disease_list(patient_data),
+            key=f"{patient_mrn}_disease"
+            )
+        available_pathway = get_pathway_list(patient_data)
+        pathways_bool = [st.sidebar.checkbox(_pathway,True,key=str(patient_mrn)+_pathway) for _pathway in available_pathway]
+        patient_data["pathways"] = [_x for _x, _y in zip(available_pathway, pathways_bool) if _y]
+        run_prediction = st.sidebar.button('Run')
+    else:
+        title_text.header('The Patient MRN is not valid')
+        st.stop()
 
     # Run Prediction
     if run_prediction:
         with st.spinner("Runing predictions ..."):
-            predictions = run_inference(input_data, pathways)
+            predictions = run_inference(patient_data)
     else:
         title_text.header('Click on the run button for predictions')
         st.stop()
 
     # Render the results 
-    title_text.header(f'The Predictions for {patient_id} are')
+    title_text.header(f'The cumulative pharmacy margin predictions for patient {patient_mrn} are:')
     # with pred_container.beta_container():
-    st.plotly_chart(plot_predictions(input_data, predictions),use_container_width=True, config={"displaylogo":False} )
-    df = pd.DataFrame.from_dict(predictions, orient='index', columns=['Predictions'])
+    st.plotly_chart(plot_predictions(patient_data, predictions),use_container_width=True, config={"displaylogo":False} )
+    df = pd.DataFrame.from_dict(predictions, orient='index', columns=['Pharmacy Margin Prediction'])
+    df['Pharmacy Margin Prediction'] = df['Pharmacy Margin Prediction'].round().apply(int)
     st.dataframe(df.style.highlight_max(axis=0),width=900)
 
     with st.beta_expander("Learn about the methodology:"):
         st.write("""
-        Here goes the methodology
+        I'm a smart robot.
         """)
         st.image("static/SFLlogo.png")
 

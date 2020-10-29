@@ -9,30 +9,120 @@ import datetime
 
 
 def run_inference(patient_data):
+    if patient_data["patient_mrn"] == "fake_id":
+        return run_dummy_inference(patient_data)
+    return run_dummy_inference(patient_data)
+
+
+def get_predictions_plot(patient_data, preditions):
+    if patient_data["patient_mrn"] == "fake_id":
+        return get_dummy_predictions_plot(patient_data, preditions)
+    return get_dummy_predictions_plot(patient_data, preditions)
+
+
+def highlight_max_margin(data, color='yellow'):
+    '''
+    highlight the maximum in a currency string Series
+    '''
+    attr = 'background-color: {}'.format(color)
+    is_max = data == data.max()
+    return [attr if v else '' for v in is_max]
+
+def int_to_(val):
+    """
+    Takes an int and cast to currency style
+    """
+    color = 'red' if val < 0 else 'black'
+    return 'color: %s' % color
+
+def int_to_currency(val):
+    """
+    Takes an int and cast to currency style
+    """
+    val = str(val)
+    _start_pos = 0
+    _end_pos = len(val)%3
+    if _end_pos == 0:
+        _end_pos = 3
+    currency = ["$"]
+    while _end_pos <= len(val): 
+        currency.append(val[_start_pos:_end_pos] + ",")
+        _start_pos = _end_pos
+        _end_pos += 3
+    
+    return "".join(currency)[:-1]
+
+def currency_to_int(val):
+    """
+    Convert an currency string to int
+    """
+    return int(val[1:].replace(",",""))
+
+def get_predictions_dataframe(predictions):
+    df = pd.DataFrame.from_dict(predictions, orient='index', columns=['Pharmacy Margin Prediction'])
+    df.index.name = "Pathway"
+    # df = df.sort_values(by="Pharmacy Margin Prediction", axis=0, ascending=False).reset_index()
+    # df['Pharmacy Margin Prediction'] = df['Pharmacy Margin Prediction'].round().apply(int)
+    df['Pharmacy Margin Prediction'] = df['Pharmacy Margin Prediction'].round(0).apply(int_to_currency)
+    df = df.style.apply(highlight_max_margin, subset=['Pharmacy Margin Prediction'])
+    return df
+
+def img_to_bytes(img_path):
+    img_bytes = Path(img_path).read_bytes()
+    encoded = base64.b64encode(img_bytes).decode()
+    return encoded
+
+
+def get_dummy_data(length=23):
+    time.sleep(1)
+    dummy_current = 0
+    dummy_data = [dummy_current]
+    for _ in range(length):
+        dummy_current += random.randint(5, 20)*1000
+        dummy_data.append(dummy_current)
+    return dummy_data
+
+def run_dummy_inference(patient_data):
     time.sleep(3)
     _base = patient_data["meta"][-1]
-    return {k:_base + random.randint(1, 20)for k in patient_data["pathways"]}
+    return {k:_base + random.randint(5, 70)*5000 for k in patient_data["pathways"]}
 
-def plot_predictions(patient_data, preditions):
+
+def get_dummy_predictions_plot(patient_data, preditions):
     x_size = len(patient_data["meta"])
+    today = datetime.datetime.today()
+    x_dates = list([datetime.timedelta(days=x*14)+today for x in range(1-x_size,1,1)])
+    date_3m_later = today+datetime.timedelta(days=90)
+
     fig = go.Figure()
     fig.add_trace(
         go.Scatter(
-            x=list(range(x_size)),
+            x = [_x.date() for _x in x_dates],
             y = patient_data["meta"],
             mode="lines",
-            name="Current"
+            name="Current",
+            hovertemplate =
+            '<br><b>Date</b>: %{x}<br>'+
+            '<b>Margin</b>: %{y}'+
+            '<extra></extra>',
             ))
     fig.add_traces([
         go.Scatter(
-            x=[x_size-1, x_size],
-            y= [patient_data["meta"][-1], preditions[k]],
+            x = [today, date_3m_later],
+            y = [patient_data["meta"][-1], preditions[k]],
             mode="lines",
-            name = k) 
+            name = k,
+            text = [k,k],
+            hovertemplate =
+            '<br><b>Pathway</b>: %{text}<br>'+
+            '<b>Date</b>: %{x}<br>'+
+            '<b>Margin</b>: %{y}'+
+            '<extra></extra>',
+            ) 
         for k in sorted(preditions.keys())
     ])
     fig.layout.xaxis.title= "Date"
-    fig.layout.yaxis.title= "Pharmacy Margin Prediction"
+    fig.layout.yaxis.title= "Cumulative Pharmacy Margin"
     fig.update_layout(
         shapes=[
             dict(
@@ -41,27 +131,23 @@ def plot_predictions(patient_data, preditions):
                     color = "Grey",
                     dash = "dash"),
                 yref= 'paper', y0= 0, y1= 1,
-                xref= 'x', x0= x_size-1, x1= x_size-1
+                xref= 'x', x0= x_dates[-1], x1= x_dates[-1],
             ),
     ])
-    today = datetime.datetime.today()
-    current_month = today.strftime("%b %Y")
-    date_3m_later = (today+datetime.timedelta(days=90)).strftime("%b %Y")
+    fig.update_yaxes(tickprefix="$")
+    
+    # current_month = today.strftime("%b %Y")
+    # date_3m_later = (today+datetime.timedelta(days=90)).strftime("%b %Y")
     fig.update_layout(
-    xaxis = dict(
-        tickmode = 'array',
-        tickvals = [4,5],
-        ticktext = [current_month, date_3m_later],
-        range = [0,5.3], 
-    )
-)
+        xaxis = dict(
+            tickmode = 'array',
+            tickvals = [x_dates[-1], date_3m_later],
+            ticktext = [x_dates[-1].strftime("%b %Y"), date_3m_later.strftime("%b %Y")],
+            range = [x_dates[0], date_3m_later + datetime.timedelta(days=14)], 
+            )
+        )
     return fig
 
-
-def img_to_bytes(img_path):
-    img_bytes = Path(img_path).read_bytes()
-    encoded = base64.b64encode(img_bytes).decode()
-    return encoded
 
 @st.cache(show_spinner=False)
 def load_local_data():
@@ -77,7 +163,7 @@ def load_local_data():
     # Load disease and pathways
     meta = pd.read_csv("data/diseases_and_pathways.csv")
     _mapping = {
-        disease : _df["pathway"].values
+        disease : _df.head(4)["pathway"].values
         for disease, _df in meta.groupby("DiseaseType")
     }
     diseases = meta.DiseaseType.nunique()
@@ -102,9 +188,8 @@ def load_logo():
 @st.cache(show_spinner=False)
 def get_data(patient_mrn):
     if patient_mrn == "fake_id":
-        return None
-    time.sleep(1)
-    return [10,20,30,40,50]
+        return get_dummy_data(23)
+    return get_dummy_data(23)
 
 @st.cache(show_spinner=False)
 def get_facility_list(meta_data, patient_data):
@@ -169,6 +254,11 @@ def main():
             key=f"{patient_mrn}_disease"
             )
         available_pathway = get_pathway_list(meta_data, patient_data)
+
+        checkbox_head = """
+        <span style='font-size: 12.8px;'>Please specific treatment pathways:</span>
+        """
+        st.sidebar.markdown(checkbox_head, unsafe_allow_html=True)
         pathways_bool = [st.sidebar.checkbox(_pathway,True,key=str(patient_mrn)+_pathway) for _pathway in available_pathway]
         patient_data["pathways"] = [_x for _x, _y in zip(available_pathway, pathways_bool) if _y]
         run_prediction = st.sidebar.button('Run')
@@ -187,17 +277,18 @@ def main():
     # Render the results 
     title_text.header(f'The cumulative pharmacy margin predictions for patient {patient_mrn} are:')
     # with pred_container.beta_container():
-    st.plotly_chart(plot_predictions(patient_data, predictions),use_container_width=True, config={"displaylogo":False} )
-    df = pd.DataFrame.from_dict(predictions, orient='index', columns=['Pharmacy Margin Prediction'])
-    df.index.name = "Pathway"
-    df['Pharmacy Margin Prediction'] = df['Pharmacy Margin Prediction'].round().apply(int)
-    st.dataframe(df.style.highlight_max(axis=0), width=900)
+    st.plotly_chart(get_predictions_plot(patient_data, predictions),use_container_width=True, config={"displaylogo":False} )
+    pred_df = get_predictions_dataframe(predictions)
+    st.dataframe(pred_df, width=1200)
 
     with st.beta_expander("Learn about the methodology:"):
         st.write("""
-        I'm a smart robot.
+        XGBoost (Extreme Gradient Boosting) is a gradient boosting decision tree library designed to be 
+        highly efficient and flexible. It uses an ensemble of decision trees that consist of classification 
+        and regression trees. These trees are used to classify observations into different 
+        leaves based on given input variables. 
         """)
-        st.image("static/SFLlogo.png")
+        #st.image("static/SFLlogo.png")
 
     st.markdown(
         f'''

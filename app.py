@@ -59,12 +59,11 @@ def currency_to_int(val):
     return int(val[1:].replace(",",""))
 
 def get_predictions_dataframe(predictions):
-    df = pd.DataFrame.from_dict(predictions, orient='index', columns=['Pharmacy Margin Prediction'])
+    p_col = "Cumulative Pharmacy Margin Prediction"
+    df = pd.DataFrame.from_dict(predictions, orient='index', columns=[p_col])
     df.index.name = "Pathway"
-    # df = df.sort_values(by="Pharmacy Margin Prediction", axis=0, ascending=False).reset_index()
-    # df['Pharmacy Margin Prediction'] = df['Pharmacy Margin Prediction'].round().apply(int)
-    df['Pharmacy Margin Prediction'] = df['Pharmacy Margin Prediction'].round(0).apply(int_to_currency)
-    df = df.style.apply(highlight_max_margin, subset=['Pharmacy Margin Prediction'])
+    df[p_col] = df[p_col].round(0).apply(int_to_currency)
+    df = df.style.apply(highlight_max_margin, subset=[p_col])
     return df
 
 def img_to_bytes(img_path):
@@ -123,6 +122,10 @@ def get_dummy_predictions_plot(patient_data, preditions):
     ])
     fig.layout.xaxis.title= "Date"
     fig.layout.yaxis.title= "Cumulative Pharmacy Margin"
+    # fig.layout.plot_bgcolor = "#FFFFFF"
+    # fig.layout.paper_bgcolor='rgba(0,0,0,0)'
+    fig.layout.plot_bgcolor='rgba(0,0,0,0)'
+
     fig.update_layout(
         shapes=[
             dict(
@@ -134,16 +137,17 @@ def get_dummy_predictions_plot(patient_data, preditions):
                 xref= 'x', x0= x_dates[-1], x1= x_dates[-1],
             ),
     ])
-    fig.update_yaxes(tickprefix="$")
+    fig.update_yaxes(
+        tickprefix="$",rangemode="nonnegative", 
+        linecolor="black",tickcolor="black", ticks='inside',)
     
-    # current_month = today.strftime("%b %Y")
-    # date_3m_later = (today+datetime.timedelta(days=90)).strftime("%b %Y")
     fig.update_layout(
         xaxis = dict(
             tickmode = 'array',
             tickvals = [x_dates[-1], date_3m_later],
             ticktext = [x_dates[-1].strftime("%b %Y"), date_3m_later.strftime("%b %Y")],
             range = [x_dates[0], date_3m_later + datetime.timedelta(days=14)], 
+            linecolor = "black", tickcolor="black", ticks='inside',
             )
         )
     return fig
@@ -158,10 +162,11 @@ def load_local_data():
     data = {}
     # Load facilities
     with open("data/facilities.txt", "r") as f:
-        facilities = [line.strip() for line in f.readlines()]
+        facilities = [line.strip().title() for line in f.readlines()]
 
     # Load disease and pathways
     meta = pd.read_csv("data/diseases_and_pathways.csv")
+    meta.DiseaseType = meta.DiseaseType.apply(lambda x: x.title())
     _mapping = {
         disease : _df.head(4)["pathway"].values
         for disease, _df in meta.groupby("DiseaseType")
@@ -244,19 +249,19 @@ def main():
         patient_data["meta"] = get_data(patient_mrn)
     if patient_data["meta"]:
         patient_data["facility"] = st.sidebar.selectbox(
-            "Please specific facility:", 
+            "Please specify facility:", 
             get_facility_list(meta_data, patient_data),
             key=f"{patient_mrn}_facility",
             )
         patient_data["disease"] = st.sidebar.selectbox(
-            "Please specific disease type:",
+            "Please specify disease type:",
             get_disease_list(meta_data, patient_data),
             key=f"{patient_mrn}_disease"
             )
         available_pathway = get_pathway_list(meta_data, patient_data)
 
         checkbox_head = """
-        <span style='font-size: 12.8px;'>Please specific treatment pathways:</span>
+        <span style='font-size: 12.8px;'>Please specify treatment pathways:</span>
         """
         st.sidebar.markdown(checkbox_head, unsafe_allow_html=True)
         pathways_bool = [st.sidebar.checkbox(_pathway,True,key=str(patient_mrn)+_pathway) for _pathway in available_pathway]
@@ -276,10 +281,12 @@ def main():
 
     # Render the results 
     title_text.header(f'The cumulative pharmacy margin predictions for patient {patient_mrn} are:')
+    st.write("")
     # with pred_container.beta_container():
-    st.plotly_chart(get_predictions_plot(patient_data, predictions),use_container_width=True, config={"displaylogo":False} )
     pred_df = get_predictions_dataframe(predictions)
     st.dataframe(pred_df, width=1200)
+    st.plotly_chart(get_predictions_plot(patient_data, predictions),use_container_width=True, config={"displaylogo":False} )
+
 
     with st.beta_expander("Learn about the methodology:"):
         st.write("""

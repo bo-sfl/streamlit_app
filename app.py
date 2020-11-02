@@ -80,7 +80,7 @@ def get_dummy_data(length=23):
     dummy_current = 0
     dummy_data = [dummy_current]
     for _ in range(length):
-        dummy_current += random.randint(5, 20)*1000
+        dummy_current += random.randint(3, 14)*1000
         dummy_data.append(dummy_current)
     return dummy_data
 
@@ -88,7 +88,7 @@ def get_dummy_data(length=23):
 def run_dummy_inference(patient_data):
     time.sleep(3)
     _base = patient_data["meta"][-1]
-    return {k:_base + random.randint(5, 70)*5000 for k in patient_data["pathways"]}
+    return {k:_base + random.randint(30, 90)*1000 for k in patient_data["pathways"]}
 
 
 def get_dummy_predictions_plot(patient_data, preditions):
@@ -329,13 +329,15 @@ def main():
                 session_state.user_name =  st.text_input("User Name:", value="", type="default")
                 session_state.password = st.text_input("Password:", value="", type="password")
                 _ = st.button("Login")
-        if authentication(session_state.user_name, session_state.password):
+                auth = authentication(session_state.user_name, session_state.password)
+            if not auth and (session_state.password != "" and session_state.user_name != ""):
+                st.error("The user name and password combination you entered is incorrect")
+            else:
+                pass
+        if auth:
             login_block.empty()
             app()
-        elif session_state.password != "" and session_state.user_name != "":
-            st.error("The user name and password combination you entered is incorrect")
-        else:
-            pass
+
     else:
         app()
 

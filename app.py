@@ -328,14 +328,14 @@ def main():
             with login_block.beta_container():
                 session_state.user_name =  st.text_input("User Name:", value="", type="default")
                 session_state.password = st.text_input("Password:", value="", type="password")
-                login = st.button("Login")
-            if login and authentication(session_state.user_name, session_state.password):
-                login_block.empty()
-                app()
-            elif session_state.password != "" and session_state.user_name != "":
-                st.error("The user name and password combination you entered is incorrect")
-            else:
-                pass
+                _ = st.button("Login")
+        if authentication(session_state.user_name, session_state.password):
+            login_block.empty()
+            app()
+        elif session_state.password != "" and session_state.user_name != "":
+            st.error("The user name and password combination you entered is incorrect")
+        else:
+            pass
     else:
         app()
 

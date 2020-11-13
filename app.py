@@ -1,160 +1,21 @@
-import streamlit as st
-import time
-from plotly import graph_objs as go
-from pathlib import Path
-import base64
-import pandas as pd
+
 import random
-import datetime
-from SessionState import session_get
 import hashlib
+import pandas as pd
+import streamlit as st
 
+import utils
+from SessionState import session_get
+from infer_dummy import run_inference, get_predictions_plot, get_data
 
-def run_inference(patient_data):
-    if patient_data["patient_mrn"] == "fake_id":
-        return run_dummy_inference(patient_data)
-    return run_dummy_inference(patient_data)
-
-
-def get_predictions_plot(patient_data, preditions):
-    if patient_data["patient_mrn"] == "fake_id":
-        return get_dummy_predictions_plot(patient_data, preditions)
-    return get_dummy_predictions_plot(patient_data, preditions)
-
-
-def highlight_max_margin(data, color='yellow'):
-    '''
-    highlight the maximum in a currency string Series
-    '''
-    attr = 'background-color: {}'.format(color)
-    is_max = data == data.max()
-    return [attr if v else '' for v in is_max]
-
-def int_to_(val):
-    """
-    Takes an int and cast to currency style
-    """
-    color = 'red' if val < 0 else 'black'
-    return 'color: %s' % color
-
-def int_to_currency(val):
-    """
-    Takes an int and cast to currency style
-    """
-    val = str(val)
-    _start_pos = 0
-    _end_pos = len(val)%3
-    if _end_pos == 0:
-        _end_pos = 3
-    currency = ["$"]
-    while _end_pos <= len(val): 
-        currency.append(val[_start_pos:_end_pos] + ",")
-        _start_pos = _end_pos
-        _end_pos += 3
-    
-    return "".join(currency)[:-1]
-
-def currency_to_int(val):
-    """
-    Convert an currency string to int
-    """
-    return int(val[1:].replace(",",""))
 
 def get_predictions_dataframe(predictions):
     p_col = "Cumulative Pharmacy Margin Prediction"
     df = pd.DataFrame.from_dict(predictions, orient='index', columns=[p_col])
     df.index.name = "Pathway"
-    df[p_col] = df[p_col].round(0).apply(int_to_currency)
-    df = df.style.apply(highlight_max_margin, subset=[p_col])
+    df[p_col] = df[p_col].round(0).apply(utils.int_to_currency)
+    df = df.style.apply(utils.highlight_max_margin, subset=[p_col])
     return df
-
-
-def img_to_bytes(img_path):
-    img_bytes = Path(img_path).read_bytes()
-    encoded = base64.b64encode(img_bytes).decode()
-    return encoded
-
-
-def get_dummy_data(length=23):
-    time.sleep(1)
-    dummy_current = 0
-    dummy_data = [dummy_current]
-    for _ in range(length):
-        dummy_current += random.randint(3, 14)*1000
-        dummy_data.append(dummy_current)
-    return dummy_data
-
-
-def run_dummy_inference(patient_data):
-    time.sleep(3)
-    _base = patient_data["meta"][-1]
-    return {k:_base + random.randint(30, 90)*1000 for k in patient_data["pathways"]}
-
-
-def get_dummy_predictions_plot(patient_data, preditions):
-    x_size = len(patient_data["meta"])
-    today = datetime.datetime.today()
-    x_dates = list([datetime.timedelta(days=x*14)+today for x in range(1-x_size,1,1)])
-    date_3m_later = today+datetime.timedelta(days=90)
-
-    fig = go.Figure()
-    fig.add_trace(
-        go.Scatter(
-            x = [_x.date() for _x in x_dates],
-            y = patient_data["meta"],
-            mode="lines",
-            name="Current",
-            hovertemplate =
-            '<br><b>Date</b>: %{x}<br>'+
-            '<b>Margin</b>: %{y}'+
-            '<extra></extra>',
-            ))
-    fig.add_traces([
-        go.Scatter(
-            x = [today, date_3m_later],
-            y = [patient_data["meta"][-1], preditions[k]],
-            mode="lines",
-            name = k,
-            text = [k,k],
-            hovertemplate =
-            '<br><b>Pathway</b>: %{text}<br>'+
-            '<b>Date</b>: %{x}<br>'+
-            '<b>Margin</b>: %{y}'+
-            '<extra></extra>',
-            ) 
-        for k in sorted(preditions.keys())
-    ])
-    fig.layout.xaxis.title= "Date"
-    fig.layout.yaxis.title= "Cumulative Pharmacy Margin"
-    # fig.layout.plot_bgcolor = "#FFFFFF"
-    # fig.layout.paper_bgcolor='rgba(0,0,0,0)'
-    fig.layout.plot_bgcolor='rgba(0,0,0,0)'
-
-    fig.update_layout(
-        shapes=[
-            dict(
-                type= 'line',
-                line=dict(
-                    color = "Grey",
-                    dash = "dash"),
-                yref= 'paper', y0= 0, y1= 1,
-                xref= 'x', x0= x_dates[-1], x1= x_dates[-1],
-            ),
-    ])
-    fig.update_yaxes(
-        tickprefix="$",rangemode="nonnegative", 
-        linecolor="black",tickcolor="black", ticks='inside',)
-    
-    fig.update_layout(
-        xaxis = dict(
-            tickmode = 'array',
-            tickvals = [x_dates[-1], date_3m_later],
-            ticktext = [x_dates[-1].strftime("%b %Y"), date_3m_later.strftime("%b %Y")],
-            range = [x_dates[0], date_3m_later + datetime.timedelta(days=14)], 
-            linecolor = "black", tickcolor="black", ticks='inside',
-            )
-        )
-    return fig
 
 
 def authentication(usr_name, password):
@@ -198,15 +59,9 @@ def load_local_data():
 
 @st.cache(show_spinner=False)
 def load_logo():
-    pic = img_to_bytes("static/small_logo.png")
+    pic = utils.img_to_bytes("static/small_logo.png")
     return f"<img src='data:image/png;base64,{pic}' class='img-fluid', height='20rem'>"
 
-
-@st.cache(show_spinner=False)
-def get_data(patient_mrn):
-    if patient_mrn == "fake_id":
-        return get_dummy_data(23)
-    return get_dummy_data(23)
 
 @st.cache(show_spinner=False)
 def get_facility_list(meta_data, patient_data):
@@ -294,7 +149,6 @@ def app():
         and regression trees. These trees are used to classify observations into different 
         leaves based on given input variables. 
         """)
-        #st.image("static/SFLlogo.png")
 
     st.markdown(
         f'''

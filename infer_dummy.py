@@ -7,11 +7,11 @@ from plotly import graph_objs as go
 import streamlit as st
 
 @st.cache(show_spinner=False)
-def get_data(length=23):
+def get_data(mrn):
     time.sleep(1)
     dummy_current = 0
     dummy_data = [dummy_current]
-    for _ in range(length):
+    for _ in range(23):
         dummy_current += random.randint(3, 14)*1000
         dummy_data.append(dummy_current)
     return dummy_data

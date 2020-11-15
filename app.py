@@ -7,7 +7,8 @@ import streamlit as st
 import utils
 from SessionState import session_get
 from infer_dummy import run_inference, get_predictions_plot, get_data
-
+from style import custom_css
+from auth import authenticated
 
 def get_predictions_dataframe(predictions):
     p_col = "Cumulative Pharmacy Margin Prediction"
@@ -18,13 +19,7 @@ def get_predictions_dataframe(predictions):
     return df
 
 
-def authentication(usr_name, password):
-    m=hashlib.sha256()
-    m.update(str(usr_name).encode())
-    m.update(str(password).encode())
-    if m.hexdigest() == '7bdc616cc8db6935847e5fb6add88de1f470f96cb5c92d0d0c6ee2ab8acab3a9':
-        return True
-    return False
+
 
 @st.cache(show_spinner=False)
 def load_local_data():
@@ -41,7 +36,7 @@ def load_local_data():
     meta = pd.read_csv("data/diseases_and_pathways.csv")
     meta.DiseaseType = meta.DiseaseType.apply(lambda x: x.title())
     _mapping = {
-        disease : _df.head(4)["pathway"].values
+        disease : _df["pathway"].values
         for disease, _df in meta.groupby("DiseaseType")
     }
     diseases = meta.DiseaseType.nunique()
@@ -161,41 +156,20 @@ def app():
         )
 
 def main():
-    ##Hacks for App layout and styles
+    '''Main App function'''
+    ## Style update must happen before everything.
     st.beta_set_page_config(
         page_title="Cool App",
         layout="wide",
         initial_sidebar_state="expanded",
     )
-    ## Hide the default humbugger manual
-    hide_menu_style = """
-        <style>
-        #MainMenu {visibility: hidden;}
-        </style>
-        """
-    st.markdown(hide_menu_style, unsafe_allow_html=True)
-    session_state = session_get(user_name='', password='')
-    if not authentication(session_state.user_name, session_state.password):
-        _, col2, _ = st.beta_columns(3)
-        with col2:
-            login_block = st.empty()
-            with login_block.beta_container():
-                session_state.user_name =  st.text_input("User Name:", value="", type="default")
-                session_state.password = st.text_input("Password:", value="", type="password")
-                _ = st.button("Login")
-                auth = authentication(session_state.user_name, session_state.password)
-            if not auth and (session_state.password != "" and session_state.user_name != ""):
-                st.error("The user name and password combination you entered is incorrect")
-            else:
-                pass
-        if auth:
-            login_block.empty()
-            app()
-
-    else:
+    
+    custom_css()
+    if True: #authenticated():
         app()
 
 
 if __name__ == "__main__":
+
     main()
 

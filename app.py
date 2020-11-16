@@ -1,14 +1,12 @@
-
 import random
-import hashlib
 import pandas as pd
 import streamlit as st
 
 import utils
-from SessionState import session_get
 from infer_dummy import run_inference, get_predictions_plot, get_data
 from style import custom_css
 from auth import authenticated
+
 
 def get_predictions_dataframe(predictions):
     p_col = "Cumulative Pharmacy Margin Prediction"
@@ -17,8 +15,6 @@ def get_predictions_dataframe(predictions):
     df[p_col] = df[p_col].round(0).apply(utils.int_to_currency)
     df = df.style.apply(utils.highlight_max_margin, subset=[p_col])
     return df
-
-
 
 
 @st.cache(show_spinner=False)
@@ -113,7 +109,8 @@ def app():
         <span style='font-size: 12.8px;'>Please specify treatment pathways:</span>
         """
         st.sidebar.markdown(checkbox_head, unsafe_allow_html=True)
-        pathways_bool = [st.sidebar.checkbox(_pathway,True,key=str(patient_mrn)+_pathway) for _pathway in available_pathway]
+        pathways_bool = [st.sidebar.checkbox(_pathway*8,True,key=str(patient_mrn)+_pathway) for _pathway in available_pathway]
+        _pathways_bool = [st.checkbox(_pathway*8,True,key="main"+str(patient_mrn)+_pathway) for _pathway in available_pathway]
         patient_data["pathways"] = [_x for _x, _y in zip(available_pathway, pathways_bool) if _y]
         run_prediction = st.sidebar.button('Run')
     else:

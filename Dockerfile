@@ -16,4 +16,4 @@ EXPOSE 8081
 
 COPY . /src
 WORKDIR /src
-ENTRYPOINT [ "./run.sh" ]
+ENTRYPOINT [ "streamlit run app.py" ]

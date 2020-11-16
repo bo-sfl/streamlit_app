@@ -10,10 +10,11 @@ from auth import authenticated
 
 def get_predictions_dataframe(predictions):
     p_col = "Cumulative Pharmacy Margin Prediction"
-    df = pd.DataFrame.from_dict(predictions, orient='index', columns=[p_col])
-    df.index.name = "Pathway"
-    df[p_col] = df[p_col].round(0).apply(utils.int_to_currency)
-    df = df.style.apply(utils.highlight_max_margin, subset=[p_col])
+    cols = ["1 month", "2 months", "3 months", "4 months", "5 months", "6 months"]
+    df = pd.DataFrame.from_dict(predictions, orient='index', columns=cols)
+    for col in cols:
+        df[col] = df[col].round(0).apply(utils.int_to_currency)
+    df = df.style.apply(utils.highlight_max_margin, subset=cols)
     return df
 
 

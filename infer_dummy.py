@@ -64,9 +64,6 @@ def get_predictions_plot(patient_data, preditions):
     
     fig.update_layout(
         xaxis = dict(
-            # tickmode = 'array',
-            # tickvals = [x_dates[-1], date_3m_later],
-            # ticktext = [x_dates[-1].strftime("%b %Y"), date_3m_later.strftime("%b %Y")],
             range = [x_dates[0]-datetime.timedelta(days=14), x_dates[-1] + datetime.timedelta(days=14)], 
             linecolor = "black", tickcolor="black", ticks='inside',
             )

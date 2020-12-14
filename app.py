@@ -157,6 +157,7 @@ def main():
     '''Main App function'''
     ## Style update must happen before everything.
     st.beta_set_page_config(
+        
         page_title="Cool App",
         layout="wide",
         initial_sidebar_state="expanded",
